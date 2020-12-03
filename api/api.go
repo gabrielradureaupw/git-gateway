@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +13,7 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi"
 	"github.com/netlify/git-gateway/conf"
+	"github.com/netlify/git-gateway/customization"
 	"github.com/netlify/git-gateway/storage"
 	"github.com/netlify/git-gateway/storage/dial"
 	"github.com/rs/cors"
@@ -58,6 +60,13 @@ func (a *API) ListenAndServe(hostAndPort string) {
 		server.Shutdown(ctx)
 	}()
 
+	if _, ok := os.LookupEnv("USE_SSL"); ok {
+		if err := server.ListenAndServeTLS("cert.pem", "key.pem"); err != nil {
+			log.WithError(err).Fatal("API server failed")
+		}
+		return
+	}
+
 	if err := server.ListenAndServe(); err != nil {
 		log.WithError(err).Fatal("API server failed")
 	}
@@ -93,6 +102,12 @@ func NewAPIWithVersion(ctx context.Context, globalConfig *conf.GlobalConfigurati
 	r.Use(recoverer)
 
 	r.Get("/health", api.HealthCheck)
+
+	r.Post("/token", func(w http.ResponseWriter, r *http.Request) error {
+		fmt.Println(r.PostForm.Encode())
+		customization.Router(w, r)
+		return nil
+	})
 
 	r.Route("/", func(r *router) {
 		if globalConfig.MultiInstanceMode {

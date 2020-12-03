@@ -2,6 +2,7 @@
 gorm.db
 vendor/
 git-gateway
+*.pem
 
 .DS_Store
 .vscode
